@@ -42,10 +42,19 @@ phases:
   build:
     commands:
       - echo "Building Paisa-Pani backend..."
-      - sam build --template-file template.yaml
+      - |
+        export PATH="$CODEBUILD_SRC_DIR/node_modules/.bin:$PATH"
+        echo "Checking esbuild..."
+        esbuild --version
+        sam build --template-file template.yaml
 
   post_build:
     commands:
+      - |
+        if [ "${CODEBUILD_BUILD_SUCCEEDING}" != "1" ]; then
+          echo "ERROR: An earlier build phase failed. Skipping deployment."
+          exit 1
+        fi
       - echo "Deploying Paisa-Pani backend..."
       - >-
         sam deploy
