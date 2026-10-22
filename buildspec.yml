@@ -54,7 +54,7 @@ phases:
         --region "${AWS_DEFAULT_REGION}"
         --resolve-s3
         --capabilities CAPABILITY_IAM
-        --parameter-overrides "LambdaExecutionRoleArn=arn:aws:iam::964222105287:role/lambda-execution-role"
+        --parameter-overrides "LambdaExecutionRoleArn=${LAMBDA_EXECUTION_ROLE_ARN}"
         --no-confirm-changeset
         --no-fail-on-empty-changeset
       - echo "Deployment command completed."

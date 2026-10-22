@@ -8,11 +8,6 @@ Parameters:
     Type: String
     Description: ARN of the existing paisa-pani-lambda-execution-role
 
-    AwsRegion:
-    Type: String
-    Default: ap-south-1
-    Description: AWS region used by the application.
-
 Resources:
   PaisaPaniHttpApi:
     Type: AWS::Serverless::HttpApi
