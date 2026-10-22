@@ -1,0 +1,66 @@
+
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: ap-south-1
+    SAM_STACK_NAME: paisa-pani-backend
+    SAM_CLI_VERSION: "1.168.0"
+
+phases:
+  install:
+    commands:
+      - echo "Checking build tools..."
+      - node --version
+      - npm --version
+      - |
+        if ! command -v sam >/dev/null 2>&1; then
+          echo "Installing AWS SAM CLI ${SAM_CLI_VERSION}..."
+          curl -fL \
+            "https://github.com/aws/aws-sam-cli/releases/download/v${SAM_CLI_VERSION}/aws-sam-cli-linux-x86_64.zip" \
+            -o /tmp/aws-sam-cli-linux-x86_64.zip
+          echo "Verifying SAM CLI installer checksum..."
+          echo "a187e5a4d4a03bb4fa48c9ac97b0829cda3c7582a1b5ae175869608f94d57ad8  /tmp/aws-sam-cli-linux-x86_64.zip" \
+            | sha256sum -c -
+          unzip -q /tmp/aws-sam-cli-linux-x86_64.zip -d /tmp/sam-installation
+          sudo /tmp/sam-installation/install
+        fi
+      - sam --version
+      - npm ci
+
+  pre_build:
+    commands:
+      - echo "Checking deployment configuration..."
+      - |
+        if [ -z "${LAMBDA_EXECUTION_ROLE_ARN:-}" ]; then
+          echo "ERROR: Set LAMBDA_EXECUTION_ROLE_ARN in the CodeBuild environment."
+          exit 1
+        fi
+      - echo "Validating AWS SAM template..."
+      - sam validate --lint --template-file template.yaml
+
+  build:
+    commands:
+      - echo "Building Paisa-Pani backend..."
+      - sam build --template-file template.yaml
+
+  post_build:
+    commands:
+      - echo "Deploying Paisa-Pani backend..."
+      - >-
+        sam deploy
+        --template-file .aws-sam/build/template.yaml
+        --stack-name "${SAM_STACK_NAME}"
+        --region "${AWS_DEFAULT_REGION}"
+        --resolve-s3
+        --capabilities CAPABILITY_IAM
+        --parameter-overrides "LambdaExecutionRoleArn=arn:aws:iam::964222105287:role/lambda-execution-role"
+        --no-confirm-changeset
+        --no-fail-on-empty-changeset
+      - echo "Deployment command completed."
+
+artifacts:
+  files:
+    - template.yaml
+    - buildspec.yml
+  discard-paths: yes

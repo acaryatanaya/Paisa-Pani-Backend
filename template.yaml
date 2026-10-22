@@ -1,0 +1,74 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Paisa-Pani backend - initial health API
+
+Parameters:
+  LambdaExecutionRoleArn:
+    Type: String
+    Description: ARN of the existing paisa-pani-lambda-execution-role
+
+    AwsRegion:
+    Type: String
+    Default: ap-south-1
+    Description: AWS region used by the application.
+
+Resources:
+  PaisaPaniHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+      CorsConfiguration:
+        AllowOrigins:
+          - https://expense.sandboxtejas.in
+          - http://localhost:5173
+        AllowHeaders:
+          - authorization
+          - content-type
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+        MaxAge: 600
+
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: paisa-pani-health
+      CodeUri: .
+      Runtime: nodejs22.x
+      Handler: src/handlers/health.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 10
+      MemorySize: 128
+      Events:
+        HealthRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PaisaPaniHttpApi
+            Path: /health
+            Method: GET
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/health.ts
+        Minify: true
+        Target: es2022
+        Sourcemap: true
+
+Outputs:
+  ApiUrl:
+    Description: Base URL for the Paisa-Pani HTTP API
+    Value: !Sub 'https://${PaisaPaniHttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+
+  HealthEndpoint:
+    Description: Health endpoint URL
+    Value: !Sub 'https://${PaisaPaniHttpApi}.execute-api.${AWS::Region}.amazonaws.com/health'
+
+  HealthFunctionName:
+    Description: Deployed health Lambda function name
+    Value: !Ref HealthFunction
