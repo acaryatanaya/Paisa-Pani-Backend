@@ -39,6 +39,12 @@ Resources:
       Role: !Ref LambdaExecutionRoleArn
       Timeout: 10
       MemorySize: 128
+      VpcConfig:
+        SubnetIds:
+          - subnet-07b86a9004f5845f8
+          - subnet-0c8d0a85cfc5ea54e
+        SecurityGroupIds:
+          - sg-09d14e1b090db41fc
       Events:
         HealthRoute:
           Type: HttpApi
