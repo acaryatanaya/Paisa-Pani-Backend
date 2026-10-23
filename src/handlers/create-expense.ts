@@ -91,18 +91,19 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     emoji,
   } = input;
 
-  if (
-    typeof amount !== "number" ||
-    !Number.isFinite(amount) ||
-    amount <= 0 ||
-    amount > 9999999999.99 ||
-    Math.round(amount * 100) !== amount * 100
-  ) {
-    return jsonResponse(400, {
-      status: "error",
-      message: "Amount must be positive and have at most two decimal places",
-    });
-  }
+if (
+  typeof amount !== "number" ||
+  !Number.isFinite(amount) ||
+  amount <= 0 ||
+  amount > 9999999999.99 ||
+  !/^\d{1,10}(?:\.\d{1,2})?$/.test(String(amount))
+) {
+  return jsonResponse(400, {
+    status: "error",
+    message:
+      "Amount must be positive and have at most two decimal places",
+  });
+}
 
   if (
     typeof categoryId !== "number" ||
