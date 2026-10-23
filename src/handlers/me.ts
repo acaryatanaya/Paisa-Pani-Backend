@@ -5,10 +5,15 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from "@aws-sdk/client-secrets-manager";
+import {
+  CognitoIdentityProviderClient,
+  GetUserCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
 
-const secretsClient = new SecretsManagerClient({
-  region: process.env.AWS_REGION || "ap-south-1",
-});
+const region = process.env.AWS_REGION || "ap-south-1";
+
+const secretsClient = new SecretsManagerClient({ region });
+const cognitoClient = new CognitoIdentityProviderClient({ region });
 
 interface DatabaseSecret {
   username: string;
@@ -27,27 +32,37 @@ interface UserProfile {
 }
 
 export const handler: APIGatewayProxyHandlerV2 = async (event) => {
-  // These claims are supplied by API Gateway after JWT validation.
+  // API Gateway validates the JWT before invoking this handler.
+  // Use its verified subject as the authenticated user's identity.
   const claims = event.requestContext.authorizer?.jwt?.claims;
-
   const cognitoSub = claims?.sub;
-  const email = claims?.email;
-  const name = claims?.name ?? claims?.["cognito:username"];
 
-  if (
-    typeof cognitoSub !== "string" ||
-    typeof email !== "string" ||
-    typeof name !== "string" ||
-    !cognitoSub ||
-    !email ||
-    !name
-  ) {
+  if (typeof cognitoSub !== "string" || !cognitoSub) {
     return {
-      statusCode: 400,
+      statusCode: 401,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         status: "error",
-        message: "Required Cognito profile claims are missing",
+        message: "Authenticated user identity is missing",
+      }),
+    };
+  }
+
+  // Cognito access tokens may not contain email or name.
+  // Retrieve those attributes using the authenticated access token.
+  const authorization =
+    event.headers.authorization ?? event.headers.Authorization;
+
+  const tokenMatch = authorization?.match(/^Bearer\s+(\S+)$/i);
+  const accessToken = tokenMatch?.[1];
+
+  if (!accessToken) {
+    return {
+      statusCode: 401,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        status: "error",
+        message: "Bearer access token is missing",
       }),
     };
   }
@@ -55,6 +70,38 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   let connection: mysql.Connection | undefined;
 
   try {
+    const cognitoUser = await cognitoClient.send(
+      new GetUserCommand({ AccessToken: accessToken })
+    );
+
+    const attributes = Object.fromEntries(
+      (cognitoUser.UserAttributes ?? []).map((attribute) => [
+        attribute.Name,
+        attribute.Value,
+      ])
+    );
+
+    const email = attributes.email;
+    const name =
+      attributes.name ??
+      (
+      [attributes.given_name, attributes.family_name]
+        .filter(Boolean)
+        .join(" ") ||
+      email?.split("@")[0]
+      );
+
+    if (!email || !name) {
+      return {
+        statusCode: 400,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          status: "error",
+          message: "Email or name is missing from the Cognito profile",
+        }),
+      };
+    }
+
     const secretArn = process.env.DB_SECRET_ARN;
 
     if (!secretArn) {
@@ -81,12 +128,12 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
       database: secret.database,
       connectTimeout: 5000,
 
-      // Temporary demo setting. Restore certificate verification
-      // using the correct RDS CA bundle before production use.
+      // Temporary demo setting. Restore TLS certificate verification
+      // with the correct RDS CA bundle before production use.
       ssl: { rejectUnauthorized: false },
     });
 
-    // Look up the user by the verified Cognito subject.
+    // Find the internal database user by the verified Cognito subject.
     const [existingRows] = await connection.execute(
       `SELECT id, cognito_sub, name, email, created_at
        FROM users
@@ -98,7 +145,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     let profile = (existingRows as UserProfile[])[0];
 
     if (!profile) {
-      // Avoid silently linking an existing account based only on email.
+      // Do not automatically link an existing account by email alone.
       const [emailRows] = await connection.execute(
         `SELECT id, cognito_sub
          FROM users
@@ -123,7 +170,6 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         };
       }
 
-      // Create a new internal user ID and link it to Cognito.
       const userId = crypto.randomUUID();
 
       await connection.execute(
