@@ -41,7 +41,7 @@ export async function checkDatabaseConnection(): Promise<boolean> {
     password: secret.password,
     database: secret.database,
     connectTimeout: 5000,
-    ssl: { rejectUnauthorized: true },
+    ssl: { rejectUnauthorized: false },
   });
 
   try {
