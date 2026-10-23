@@ -13,6 +13,14 @@ Resources:
     Type: AWS::Serverless::HttpApi
     Properties:
       StageName: '$default'
+      Auth:
+        Authorizers:
+          CognitoJwtAuthorizer:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              issuer: https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_waru5q9eZ
+              audience:
+                - 1ucr4810a49r6db220bhkc519r
       CorsConfiguration:
         AllowOrigins:
           - https://expense.sandboxtejas.in
@@ -90,6 +98,8 @@ Resources:
             ApiId: !Ref PaisaPaniHttpApi
             Path: /health/db
             Method: GET
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
@@ -125,6 +135,8 @@ Resources:
             ApiId: !Ref PaisaPaniHttpApi
             Path: /categories
             Method: GET
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
     Metadata:
       BuildMethod: esbuild
       BuildProperties:
