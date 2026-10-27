@@ -295,6 +295,80 @@ Resources:
         Target: es2022
         Sourcemap: true
 
+  CreateGroupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: paisa-pani-create-group
+      CodeUri: .
+      Handler: src/handlers/create-group.handler
+      Runtime: nodejs22.x
+      MemorySize: 256
+      Timeout: 15
+      Role: !Ref LambdaExecutionRoleArn
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-09d14e1b090db41fc
+        SubnetIds:
+          - subnet-07b86a9004f5845f8
+          - subnet-0c8d0a85cfc5ea54e
+      Environment:
+        Variables:
+          DB_SECRET_ARN: arn:aws:secretsmanager:ap-south-1:964222105287:secret:expense-tracker/prod/db-FyTBtS
+      Events:
+        CreateGroup:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PaisaPaniHttpApi
+            Path: /groups
+            Method: POST
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/create-group.ts
+        Target: es2022
+        Minify: true
+        Sourcemap: true
+
+  ListGroupsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: paisa-pani-list-groups
+      CodeUri: .
+      Handler: src/handlers/list-groups.handler
+      Runtime: nodejs22.x
+      MemorySize: 256
+      Timeout: 15
+      Role: !Ref LambdaExecutionRoleArn
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-09d14e1b090db41fc
+        SubnetIds:
+          - subnet-07b86a9004f5845f8
+          - subnet-0c8d0a85cfc5ea54e
+      Environment:
+        Variables:
+          DB_SECRET_ARN: arn:aws:secretsmanager:ap-south-1:964222105287:secret:expense-tracker/prod/db-FyTBtS
+      Events:
+        ListGroups:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PaisaPaniHttpApi
+            Path: /groups
+            Method: GET
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/list-groups.ts
+        Target: es2022
+        Minify: true
+        Sourcemap: true
+
 
 Outputs:
   ApiUrl:
