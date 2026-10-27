@@ -182,6 +182,44 @@ Resources:
         Minify: true
         Target: es2022
         Sourcemap: true
+
+  UpdateMeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: paisa-pani-update-me
+      CodeUri: .
+      Runtime: nodejs22.x
+      Handler: src/handlers/update-me.handler
+      Role: !Ref LambdaExecutionRoleArn
+      Timeout: 10
+      MemorySize: 256
+      VpcConfig:
+        SubnetIds:
+          - subnet-07b86a9004f5845f8
+          - subnet-0c8d0a85cfc5ea54e
+        SecurityGroupIds:
+          - sg-09d14e1b090db41fc
+      Environment:
+        Variables:
+          DB_SECRET_ARN: arn:aws:secretsmanager:ap-south-1:964222105287:secret:expense-tracker/prod/db-FyTBtS
+      Events:
+        UpdateMeRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PaisaPaniHttpApi
+            Path: /me
+            Method: PATCH
+            Auth:
+              Authorizer: CognitoJwtAuthorizer
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/update-me.ts
+        Minify: true
+        Target: es2022
+        Sourcemap: true
+
         
   CreateExpenseFunction:
     Type: AWS::Serverless::Function
